@@ -1,0 +1,11 @@
+s3:
+  bucket: "your-s3-bucket-name"
+  prefix: "pihole"
+  region: "us-east-1"
+  access_key: "YOUR_ACCESS_KEY"
+  secret_key: "YOUR_SECRET_KEY"
+
+backup:
+  retention_days: 90
+  backup_dir: "/home/YOUR_USER"
+  log_file: "/home/YOUR_USER/pihole-backup/logs/pihole-backup.log"
