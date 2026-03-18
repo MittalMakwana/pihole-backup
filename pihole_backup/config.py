@@ -1,4 +1,3 @@
-import os
 import yaml
 from pathlib import Path
 
@@ -33,7 +32,6 @@ def init_config() -> None:
     log_file    = input(
         f"Enter log file path (default: {Path.home()}/.logs/pihole-backup.log): "
     ).strip() or str(Path.home() / ".logs" / "pihole-backup.log")
-
     config = {
         "s3": {
             "bucket":     bucket,

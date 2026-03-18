@@ -1,15 +1,17 @@
-import os
 import glob
+import os
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
 from pihole_backup.config import load_config
 from pihole_backup.logger import setup_logger
+
+
+TELEPORTER_COMMAND = ["sudo", "-n", "pihole-FTL", "--teleporter"]
 
 
 def get_s3_client(s3_cfg: dict):
@@ -21,22 +23,39 @@ def get_s3_client(s3_cfg: dict):
     )
 
 
+def log_teleporter_failure(result: subprocess.CompletedProcess, logger) -> None:
+    stderr = (result.stderr or "").strip()
+    stdout = (result.stdout or "").strip()
+    details = stderr or stdout or f"exit code {result.returncode}"
+
+    logger.error(f"pihole-FTL failed: {details}")
+
+    if "sudo:" in details and (
+        "a password is required" in details or "a terminal is required" in details
+    ):
+        logger.error(
+            "Cron cannot answer sudo prompts. Configure passwordless sudo for pihole-FTL so "
+            "`sudo -n pihole-FTL --teleporter` can run non-interactively."
+        )
+        logger.error(
+            "Example sudoers entry: YOUR_USER ALL=(root) NOPASSWD: /usr/bin/pihole-FTL"
+        )
+
+
 def generate_backup(backup_dir: str, logger) -> str:
     logger.info("Generating Pi-hole teleporter backup...")
 
-    # Ensure backup dir exists
     os.makedirs(backup_dir, exist_ok=True)
 
-    # Run teleporter with cwd set to backup_dir so zip lands there
     result = subprocess.run(
-        ["sudo", "pihole-FTL", "--teleporter"],
+        TELEPORTER_COMMAND,
         capture_output=True,
         text=True,
-        cwd=backup_dir
+        cwd=backup_dir,
     )
 
     if result.returncode != 0:
-        logger.error(f"pihole-FTL failed: {result.stderr}")
+        log_teleporter_failure(result, logger)
         sys.exit(1)
 
     pattern = os.path.join(backup_dir, "pi-hole_*.zip")
@@ -48,6 +67,7 @@ def generate_backup(backup_dir: str, logger) -> str:
 
     logger.info(f"Backup created: {files[0]}")
     return files[0]
+
 
 def upload_to_s3(backup_file: str, s3_cfg: dict, logger) -> None:
     s3 = get_s3_client(s3_cfg)
@@ -71,10 +91,7 @@ def cleanup_old_backups(s3_cfg: dict, retention_days: int, logger) -> None:
     logger.info(f"Cleaning up backups older than {retention_days} days...")
 
     try:
-        response = s3.list_objects_v2(
-            Bucket=s3_cfg["bucket"],
-            Prefix=s3_cfg["prefix"]
-        )
+        response = s3.list_objects_v2(Bucket=s3_cfg["bucket"], Prefix=s3_cfg["prefix"])
 
         deleted = 0
         for obj in response.get("Contents", []):
@@ -94,10 +111,7 @@ def list_backups(args) -> None:
     s3_cfg = config["s3"]
     s3 = get_s3_client(s3_cfg)
 
-    response = s3.list_objects_v2(
-        Bucket=s3_cfg["bucket"],
-        Prefix=s3_cfg["prefix"]
-    )
+    response = s3.list_objects_v2(Bucket=s3_cfg["bucket"], Prefix=s3_cfg["prefix"])
 
     objects = response.get("Contents", [])
     if not objects:
