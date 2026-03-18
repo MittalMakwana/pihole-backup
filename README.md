@@ -6,7 +6,7 @@ Inspired by [servarr-backup](https://github.com/Zerka30/servarr-backup).
 
 ## Features
 
-- 🔒 Generates Pi-hole teleporter backup using `pihole-FTL --teleporter`
+- 🔒 Generates Pi-hole teleporter backup using `sudo -n pihole-FTL --teleporter`
 - ☁️  Uploads backup to AWS S3 (or S3-compatible storage)
 - 🗑️  Automatic retention cleanup of old backups
 - 📋 List backups stored in S3
@@ -80,6 +80,24 @@ crontab -e
 Add:
 ```
 15 2 * * * /home/YOUR_USER/pihole-backup/venv/bin/pihole-backup backup create >> /home/YOUR_USER/.logs/pihole-backup.log 2>&1
+```
+
+### Cron + sudo
+
+Cron jobs are non-interactive, so they cannot enter a sudo password. The backup command now always uses `sudo -n pihole-FTL --teleporter`, which fails fast and logs a clearer message instead of hanging.
+
+To make the cron job work, allow passwordless sudo for `pihole-FTL` for the account that runs the job.
+
+Example sudoers entry:
+
+```sudoers
+YOUR_USER ALL=(root) NOPASSWD: /usr/bin/pihole-FTL
+```
+
+You can install it safely with `visudo`:
+
+```bash
+sudo visudo -f /etc/sudoers.d/pihole-backup
 ```
 
 ## S3 IAM Policy

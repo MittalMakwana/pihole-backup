@@ -7,5 +7,5 @@ s3:
 
 backup:
   retention_days: 90
-  backup_dir: "/home/YOUR_USER"
-  log_file: "/home/YOUR_USER/pihole-backup/logs/pihole-backup.log"
+  backup_dir: "/home/YOUR_USER/.backup"
+  log_file: "/home/YOUR_USER/.logs/pihole-backup.log"
